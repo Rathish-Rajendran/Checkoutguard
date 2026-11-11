@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
+from starlette.concurrency import run_in_threadpool
 from .config import settings
 from .db import get_db
 from .models import Merchant, Order, BuyerToken, Incident, Recorder, Webhook, Investigation, ReplayRun, Audit
@@ -19,7 +20,7 @@ async def correlation(request:Request,call_next):
     response.headers['X-Content-Type-Options']='nosniff'
     response.headers['X-Frame-Options']='DENY'
     response.headers['Referrer-Policy']='no-referrer'
-    if request.url.path.startswith('/api/'):
+    if request.url.path.startswith(('/api/', '/status/')):
         response.headers['Cache-Control']='no-store'
         response.headers['Referrer-Policy']='no-referrer'
     logging.info(json.dumps({'correlation_id':cid,'method':request.method,'status':response.status_code})); return response
@@ -80,9 +81,12 @@ async def webhook(request:Request,db=Depends(get_db),client=Depends(get_client))
         if len(raw)+len(chunk)>262144:raise HTTPException(413,'Webhook too large')
         raw.extend(chunk)
     try:event=json.loads(raw)
-    except ValueError:raise HTTPException(400,'Invalid JSON')
+    except (ValueError, RecursionError):raise HTTPException(400,'Invalid JSON')
     if not isinstance(event,dict) or not isinstance(event.get('id'),str):raise HTTPException(400,'Missing event ID')
-    try:verified=client.verify_webhook(dict(request.headers),event)
+    return await run_in_threadpool(process_webhook, db, client, dict(request.headers), event)
+
+def process_webhook(db, client, headers, event):
+    try:verified=client.verify_webhook(headers,event)
     except Exception:raise HTTPException(503,'Verification unavailable; retry delivery')
     if not verified:
         db.add(Audit(action='webhook.signature_rejected'));db.commit();raise HTTPException(400,'Invalid webhook signature')
@@ -122,4 +126,10 @@ if DIST.exists():
     @app.get('/{path:path}',include_in_schema=False)
     def spa(path:str):
         if path.startswith(('api/','health/')):raise HTTPException(404,'Not found')
-        return FileResponse(DIST/'index.html',headers={'Cache-Control':'no-cache','Referrer-Policy':'no-referrer'})
+        return FileResponse(DIST/'index.html',headers={
+            'Cache-Control': 'no-cache',
+            'Content-Security-Policy': (
+                "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+                "base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'"
+            ),
+        })

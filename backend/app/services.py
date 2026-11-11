@@ -74,7 +74,10 @@ def capture(db, order, client, drop=False):
         resource = client.capture_order(order.provider_id, op.request_key)
         record(db, order, 'provider.capture', resource, order.mode)
         if drop:
-            order.state = 'UNKNOWN'; incident(db, order)
+            # A worker may have confirmed the order while the provider call was in flight.
+            db.execute(update(Order).where(Order.id == order.id, Order.state != 'CONFIRMED')
+                       .values(state='UNKNOWN'))
+            incident(db, order)
             record(db, order, 'demo.response_dropped', {'simulated_fault': True})
             db.commit()
             raise HTTPException(504, 'Demo: capture response lost. Check private payment status; do not pay again.')

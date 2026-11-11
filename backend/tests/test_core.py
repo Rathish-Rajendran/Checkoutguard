@@ -37,6 +37,26 @@ def test_lost_response_recovers():
     assert c.post('/api/orders/'+o['id']+'/reconcile',headers=h).json()['state']=='CONFIRMED'
     assert c.post('/api/paypal/capture',headers=h,json={'order_id':o['id']}).json()['duplicate_blocked']
     assert fake.capture_count==1
+
+def test_lost_response_preserves_worker_confirmation(monkeypatch):
+    from app.models import Order
+    from app.services import reconcile
+
+    order = create()
+    capture_order = fake.capture_order
+
+    def capture_then_reconcile(provider_id, key):
+        resource = capture_order(provider_id, key)
+        with Session() as db:
+            assert reconcile(db, db.get(Order, order['id']), fake)
+        return resource
+
+    monkeypatch.setattr(fake, 'capture_order', capture_then_reconcile)
+    response = c.post('/api/paypal/capture', headers=h,
+                      json={'order_id':order['id'], 'drop_response':True})
+    assert response.status_code == 504
+    assert c.get('/api/buyer/status/'+order['buyer_token']).json()['state'] == 'CONFIRMED'
+
 def test_concurrent_capture():
     o=create()
     def call(_):return c.post('/api/paypal/capture',headers=h,json={'order_id':o['id']})
@@ -148,6 +168,7 @@ def test_sandbox_adapter_contract(monkeypatch):
     assert not client.verify_webhook({}, {'id':'WH-1'})
     assert seen[1].headers['PayPal-Request-Id']=='stable-create-key'
     assert seen[3].headers['PayPal-Request-Id']=='stable-capture-key'
+    assert seen[3].headers['Prefer']=='return=representation'
     import json
     assert json.loads(seen[-1].content)['webhook_id']=='WH-TEST'
 
@@ -170,3 +191,15 @@ def test_sandbox_requires_nondefault_merchant_key():
     from pydantic import ValidationError
     with pytest.raises(ValidationError,match='MERCHANT_API_KEY'):
         Settings(_env_file=None,payment_mode='sandbox',paypal_client_id='test',paypal_client_secret='test',paypal_webhook_id='test',merchant_api_key='local-demo-key-change-me')
+
+@pytest.mark.parametrize('public_url', ['http://checkout.example.invalid', 'https://checkout.example.invalid/path'])
+def test_sandbox_validates_approval_origin_without_disclosing_secrets(public_url):
+    from app.config import Settings
+    from pydantic import ValidationError
+
+    secret = 'private-test-payment-value'
+    with pytest.raises(ValidationError, match='PUBLIC_URL') as error:
+        Settings(_env_file=None, payment_mode='sandbox', paypal_client_id='test',
+                 paypal_client_secret=secret, paypal_webhook_id='test',
+                 merchant_api_key='m' * 32, public_url=public_url)
+    assert secret not in str(error.value)

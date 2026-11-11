@@ -36,7 +36,10 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().status).to.eql('ok');",
+              "});"
             ]
           }
         }
@@ -97,7 +100,11 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().state).to.eql('CONFIRMED');",
+              "  pm.expect(pm.response.json().duplicate_blocked).to.eql(false);",
+              "});"
             ]
           }
         }
@@ -125,7 +132,11 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().state).to.eql('CONFIRMED');",
+              "  pm.expect(pm.response.json().capture_id).to.be.a('string').and.not.empty;",
+              "});"
             ]
           }
         }
@@ -153,7 +164,10 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().state).to.eql('CONFIRMED');",
+              "});"
             ]
           }
         }
@@ -270,7 +284,12 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().state).to.eql('CONFIRMED');",
+              "  pm.expect(pm.response.json().order_ref).to.eql(pm.collectionVariables.get('order_id'));",
+              "  pm.expect(pm.response.json()).not.to.have.property('capture_id');",
+              "});"
             ]
           }
         }
@@ -298,7 +317,10 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.test('Expected checkout outcome', () => {",
+              "  pm.expect(pm.response.json().passed).to.eql(true);",
+              "});"
             ]
           }
         }

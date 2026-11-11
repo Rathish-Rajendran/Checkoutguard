@@ -33,19 +33,22 @@ class FakePayPalClient:
 
 class SandboxPayPalClient:
     base = 'https://api-m.sandbox.paypal.com'
-    def request(self, method, path, *, key=None, body=None):
+    def request(self, method, path, *, key=None, body=None, prefer=None):
         s = settings()
         with httpx.Client(timeout=20) as client:
             auth = client.post(self.base+'/v1/oauth2/token', auth=(s.paypal_client_id, s.paypal_client_secret), data={'grant_type': 'client_credentials'})
             auth.raise_for_status()
             headers = {'Authorization': 'Bearer '+auth.json()['access_token']}
             if key: headers['PayPal-Request-Id'] = key
+            if prefer: headers['Prefer'] = prefer
             response = client.request(method, self.base+path, headers=headers, json=body)
             response.raise_for_status()
             return response.json()
     def create_order(self, key, reference):
         return self.request('POST', '/v2/checkout/orders', key=key, body={'intent': 'CAPTURE', 'purchase_units': [{'reference_id': reference, 'amount': {'currency_code': 'USD', 'value': '49.00'}}], 'payment_source': {'paypal': {'experience_context': {'return_url': settings().public_url+'/checkout', 'cancel_url': settings().public_url+'/checkout', 'user_action': 'PAY_NOW'}}}})
-    def capture_order(self, order_id, key): return self.request('POST', '/v2/checkout/orders/'+order_id+'/capture', key=key, body={})
+    def capture_order(self, order_id, key):
+        return self.request('POST', '/v2/checkout/orders/'+order_id+'/capture',
+                            key=key, body={}, prefer='return=representation')
     def get_order(self, order_id): return self.request('GET', '/v2/checkout/orders/'+order_id)
     def verify_webhook(self, headers, event):
         required = ['paypal-auth-algo', 'paypal-cert-url', 'paypal-transmission-id', 'paypal-transmission-sig', 'paypal-transmission-time']
