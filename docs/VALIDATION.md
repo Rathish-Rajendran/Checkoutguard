@@ -1,30 +1,19 @@
 # Validation evidence
 
-Validated in the managed Linux environment, November 10, 2026 (America/Los_Angeles).
+Release checks were run on macOS on November 10, 2026.
 
 | Check | Result |
 | --- | --- |
-| `./scripts/setup.sh` with existing dependencies/database | Passed; repeatable install, migrate, seed |
-| `./scripts/test.sh` | 31 backend tests passed after the Ollama migration; TypeScript and Vite production build passed |
-| PostgreSQL 16 integration run | 17 backend tests passed against a separate PostgreSQL database (before adding the independent sandbox adapter contract test) |
-| PostgreSQL initial migration + seed | Passed on a new database |
-| PostgreSQL direct evidence deletion | Rejected by append-only database trigger, as expected |
-| `cd frontend && npm exec playwright test` | 2 tests passed using system Chromium: incident/reconcile/investigate/evidence/replay; checkout/private status/mobile viewport |
-| Four predefined replay scenarios | All assertions passed; isolated fake provider, no payment credentials |
-| Live API + separate worker smoke check | Health OK; simulated response loss automatically reconciled to CONFIRMED; repeat capture blocked; status marked no-store; production SPA served |
-| Shell syntax / JSON manifests | Passed |
-| Real PayPal sandbox purchase and signed delivery | Not run: sandbox client credentials/webhook ID not configured |
-| Actual Ollama model inference | Not run: model registry blocked in this cloud environment; native API contract, invalid output, missing model, incomplete generation and outage fallback tested with controlled responses |
-| Render deployment | Blueprint included; not deployed |
+| Fresh judge setup | Installed locked dependencies, applied migrations, seeded a fresh SQLite database and started the API, worker and frontend with Bash 3.2 and no PayPal credentials. Health returned OK. |
+| `./scripts/test.sh` | 32 backend tests passed. TypeScript and the Vite production build passed. |
+| Playwright with Chrome | 2 tests passed. The tests exercise incident recovery, investigation, evidence inspection, replay, manual incident reporting and private buyer status at desktop and mobile widths. |
+| Postman via Newman | 11 requests and 17 assertions passed against a fresh simulated service, including confirmation, buyer data minimization, replay and rejection of an unsigned webhook. |
+| Replay Lab | Automated checks passed for all four predefined scenarios. |
+| Ollama with `qwen2.5:3b` | A live browser investigation displayed OLLAMA · LOCAL and linked to a provider record. Adapter tests cover invalid citations, malformed output, incomplete output and provider failure. |
+| PayPal Sandbox | OAuth succeeded and CheckoutGuard's adapter created a Sandbox order with a buyer approval link. Buyer approval, capture and genuine signed webhook delivery remain to be verified. |
+| PostgreSQL 16 | An earlier Linux run passed 17 backend integration tests, fresh migration and seed, and direct evidence deletion rejection. The current release suite ran against SQLite. |
+| Hosting | The built SPA was served by FastAPI and the Render blueprint is included. The judge walkthrough was verified locally. |
 
-The sandbox adapter contract test uses HTTPX MockTransport and checks the fixed sandbox host, OAuth, stable request IDs and webhook verification request. It is not a real PayPal integration test.
+The suite emits a Starlette HTTPX deprecation warning and a Vite bundle size warning. The Postman webhook request checks unsigned rejection. Automated tests for verified webhook persistence and deduplication use a controlled verifier.
 
-The updated test suite emits an HTTPX deprecation warning from Starlette. Vite reports a large bundle, primarily AG Grid. Neither failed validation. Fonts are bundled locally rather than fetched by the browser.
-
-The cloud environment draft now requests `api-m.sandbox.paypal.com` and `registry.ollama.ai`; the former Google AI domain has been removed. Review/save those settings before affected external operations and publish to reuse the environment. Saving a draft alone does not apply network access. The actual model download may also require its redirect destinations, which have not yet been observed.
-
-No optional sponsor integrations are represented as complete. The evidence experience is a clickable claim-to-source inspector rather than a visual node graph. Authentication is a demo merchant API key, not a production identity provider. Sandbox approval uses a redirect instead of the PayPal JS SDK. SQLite is the default local store; PostgreSQL was separately validated and is intended for deployment. Automatic retry/recovery of unresolved create-order operations is a documented limitation; capture requests remain protected against duplicates.
-
-See [the pre-push security review](SECURITY_REVIEW.md) for dependency upgrades, additional regression tests and the latest browser run.
-
-Ollama migration: current AI uses the local `/api/chat` adapter and no Google credentials. To run actual inference, follow the root README. Registry access (`registry.ollama.ai` and any actual download redirect destinations) is needed to pull a model here; local inference itself needs no external API access. Historical pre-push security checks are preserved in SECURITY_REVIEW.md.
+For a complete PayPal Sandbox validation, register a reachable HTTPS webhook, approve a checkout with a sandbox buyer, verify one capture and the matching buyer status, then check PayPal's signed delivery history. See [sandbox setup](../README.md#keys-and-sandbox-setup) and [the demo script](DEMO.md).

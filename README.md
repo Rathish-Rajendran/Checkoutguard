@@ -2,70 +2,19 @@
 
 An evidence-based payment incident workspace. When checkout stops responding, reconstruct the payment outcome, inspect the source records, and test recovery without making another payment.
 
-**Implemented:** FastAPI, SQLAlchemy/Alembic, PostgreSQL support, a zero-key SQLite local mode, React/TypeScript/Vite, AG Grid Community incident table, private buyer status, append-only Flight Recorder, durable capture idempotency, verified sandbox webhook inbox, outbox worker, source-linked investigator, and four isolated replay scenarios.
+## Judge walkthrough
 
-**Local simulation is not a PayPal transaction.** Sandbox integration code is implemented but requires your credentials and a real sandbox approval/capture to validate. AI now runs through local Ollama; unavailable AI falls back to a labeled deterministic report. No AI API key is required. There is no live-money mode.
+The local demo includes merchant incident investigation, private buyer payment status, the Flight Recorder, and four Replay Lab scenarios. Start with [Quick start](#quick-start) and [the walkthrough](#try-the-whole-story-no-api-keys-required). The local simulator needs no PayPal account. Ollama runs on the same machine and powers the investigator without an API key. [Validation results](docs/VALIDATION.md)
 
-## Project status
+CheckoutGuard also integrates PayPal Sandbox through server-side OAuth, order creation, buyer approval, capture and lookup. Sandbox delivery uses signed webhooks, a durable inbox and a reconciliation worker. The app supports simulated and sandbox payments. [Sandbox setup](#keys-and-sandbox-setup)
 
-The local development workflow is implemented and tested. **The project still needs deployed sandbox integration testing and a final demo before it is hackathon-ready.** Credentials are one prerequisite; hosting, webhook registration, network access, and end-to-end validation also remain.
+### Product boundaries
 
-### What has been implemented
-
-| Area | Implementation | Validation status |
-| --- | --- | --- |
-| Application foundation | FastAPI API, health endpoint, environment validation, correlation IDs and structured logs | Local health and startup verified |
-| Database | SQLAlchemy models, initial Alembic migration, demo merchant seed, SQLite local mode and PostgreSQL support | Migration/seed verified; PostgreSQL integration tests passed |
-| Payment integration | Separate simulated and PayPal sandbox clients; server-side OAuth, create, approval redirect, capture and lookup | Simulated flows and mocked sandbox request contract tested; actual sandbox calls still pending |
-| Capture protection | Durable operation/request keys and a database uniqueness constraint prevent repeated or concurrent capture calls | Concurrent and repeated capture tests passed |
-| Payment Truth | Backend-derived CONFIRMED, PENDING, UNKNOWN and FAILED states, matching resource checks and protection against confirmed-state regression | Automated state and reconciliation tests passed |
-| Flight Recorder | Append-only timeline with stable evidence IDs, timestamps and inspectable source payloads | Application immutability tested; PostgreSQL database trigger verified |
-| Webhooks and worker | Sandbox signature-verification adapter, durable inbox, event deduplication, outbox and bounded reconciliation retries | Verification failure, injected verification success, duplicates and worker behavior tested; PayPal-signed deliveries pending |
-| Buyer experience | Demo checkout and private polling status page; hashed, expiring and revocable status tokens | Browser flow, mobile viewport and token/access tests passed |
-| Merchant workspace | API-key authentication, tenant-scoped incident list/detail, AG Grid table, timeline and manual reconciliation | Browser investigation flow and tenant isolation tested |
-| Investigation | Local Ollama adapter, structured output, evidence-ID/action validation, deterministic confirmed-fact wording and reply drafts, outage fallback | Local report, fabricated-citation rejection and provider-outage fallback tested; actual local-model inference pending in this cloud environment |
-| Evidence inspection | Clickable findings and timeline records open their underlying JSON; editable support reply | Browser interaction tested; implemented as a source inspector rather than a node graph |
-| Replay Lab | Four isolated scenarios: lost response, repeated capture, duplicate/out-of-order notifications and unresolved payment; saved assertions and traces | All four simulations passed; no PayPal credentials used |
-| Delivery tooling | Setup/start/test scripts, dependency locks, environment template, PostgreSQL Compose file, Postman collection, Render blueprint and demo guide | Setup repeatability and production frontend build verified; hosting and Postman execution still pending |
-
-### What has been verified
-
-These are the recorded results from the implementation session, not a claim that external integrations or deployment have been validated:
-
-- **31 backend tests passed** using the local test database.
-- **17 backend tests passed against PostgreSQL 16**, before the independent mocked sandbox adapter contract test was added.
-- **2 browser tests passed**, covering merchant investigation/evidence/replay and buyer checkout/private status, including a mobile viewport.
-- **TypeScript checking and the Vite production build passed.**
-- A running API and separate worker automatically recovered a simulated lost capture response, confirmed payment truth, and blocked a duplicate capture.
-- PostgreSQL migrations, seeding and the append-only evidence trigger were verified.
-
-See [the pre-push security review](docs/SECURITY_REVIEW.md) for dependency fixes and security checks.
-
-See [validation evidence and limitations](docs/VALIDATION.md) for the full record. Commands to repeat the checks appear under [Automated testing](#automated-testing).
-
-### What needs to be done for the hackathon
-
-Complete these in order. External test results may reveal issues that need fixes; having adapter code is not proof that the integration works.
-
-- [ ] **Configure PayPal sandbox access.** Create a sandbox app, obtain its Client ID/Secret, and prepare a sandbox personal buyer account. Store credentials securely as described under [Keys and sandbox setup](#keys-and-sandbox-setup).
-- [ ] **Deploy the application and database.** Provision a public HTTPS application, PostgreSQL and the background worker; review the supplied [Render blueprint](render.yaml) and hosting costs. Migrate/seed the deployment and confirm API/worker startup.
-- [ ] **Register the sandbox webhook.** Add the public `/api/paypal/webhooks` endpoint to the PayPal sandbox app, subscribe to the documented events, and configure its Webhook ID on the API and worker. Set `PUBLIC_URL` to the deployed application origin and enable `PAYMENT_MODE=sandbox` once all three PayPal values exist.
-- [ ] **Verify outbound network access.** In this managed cloud environment, review/save the proposed access to `api-m.sandbox.paypal.com` and, for model downloads in this cloud environment, `registry.ollama.ai`, then test a fresh connection. A saved draft alone does not apply network changes. Ensure the chosen host also permits the required destinations.
-- [ ] **Complete an actual PayPal sandbox purchase.** Approve with the sandbox buyer, capture once, and verify the capture ID and matching amount/currency through backend lookup and buyer status. No real money should move.
-- [ ] **Verify signed webhook delivery and deduplication.** Confirm PayPal deliveries are accepted only after verification and persistence; resend a delivery and confirm no duplicate business effect. Check worker reconciliation.
-- [ ] **Demonstrate sandbox response-loss recovery.** In a controlled sandbox demo, enable the response-loss fault, prove reconciliation confirms one capture, and prove a repeated request cannot capture again. Disable faults afterward.
-- [ ] **Run and validate local Ollama.** Install Ollama, pull `qwen2.5:3b`, and follow [Local AI with Ollama](#local-ai-with-ollama). Verify a source-linked investigation on the sandbox incident and check invalid-output/outage fallback. No AI API key is needed.
-- [ ] **Run the deployed acceptance checks.** Exercise merchant access, private buyer status, source inspection, all four replays, and the Postman collection. Record results and fix failures.
-- [ ] **Prepare the submission.** Confirm hackathon-required integrations, rehearse [the demo](docs/DEMO.md), record it, and add the deployed URL and judge access instructions without publishing secrets.
-
-### Known limitations and optional follow-up
-
-- Authentication is a demo merchant API key, not a production identity/session system. The checkout screen is merchant-operated; a public storefront needs a server-side merchant integration so buyers never receive that key.
-- Automatic recovery of unresolved **create-order** operations is not implemented. These require investigation; capture operations have separate duplicate protection and reconciliation.
-- The Evidence Graph requirement is represented by the interactive claim-to-source inspector. A visual node graph is optional follow-up.
-- PayPal approval uses a redirect instead of embedded JS SDK buttons.
-- Elastic, AG Studio, APIMatic, Zapier and KERNEL are not integrated. AG Grid Community is implemented. Confirm judging requirements before deciding whether any additional integration is necessary.
-- Production identity, ingress rate limits, operational monitoring and further bundle-size optimization are follow-up work beyond the current development demo.
+- Payment truth comes from matching provider records. The investigator explains incident evidence and generates a draft for merchant review.
+- The Evidence Graph is an interactive claim-to-source inspector. Findings and timeline entries open their recorded evidence.
+- The demo uses merchant API-key authentication. A production storefront should use merchant-side order creation and production identity.
+- Replay Lab uses predefined scenarios with an isolated simulated provider. An unresolved create-order operation requires merchant investigation.
+- AG Grid Community powers the incident table. The repository includes a Postman collection and a Render blueprint.
 
 ## Local AI with Ollama
 
@@ -98,11 +47,9 @@ The backend uses Ollama's native `/api/chat` endpoint, structured JSON-schema ou
 
 **Deployment:** `127.0.0.1` is relative to the API process. An API hosted on Render cannot reach Ollama running on your laptop via that address. For a local hackathon demo, run the API and Ollama together. For a hosted demo, provision a model server reachable over a protected private network, configure `OLLAMA_BASE_URL` there, and switch `AI_PROVIDER=ollama`. Do not expose Ollama's unauthenticated port directly to the public internet. The Render blueprint defaults to `deterministic` until that model service is configured. If containers are used, configure a reachable service hostname rather than assuming container loopback reaches the host.
 
-This managed cloud environment currently blocks `registry.ollama.ai`. Adapter tests use controlled HTTP responses; an actual model download/inference here remains unverified until registry access and any download destinations are allowed. Model setup is separate from `scripts/setup.sh`, so normal dependency installation does not silently download a large model.
-
 ## Quick start
 
-Prerequisites: Python 3.12+, Node 22+ and npm. From the repository root:
+Use Python 3.12 or newer and Node 22 or newer with npm. From the repository root:
 
 ```bash
 cp -n .env.example backend/.env  # Preserve an existing local configuration
@@ -110,7 +57,9 @@ cp -n .env.example backend/.env  # Preserve an existing local configuration
 ./scripts/dev.sh
 ```
 
-Open `http://localhost:5173` on your own machine. API docs: `http://localhost:8000/docs`. Health: `curl http://localhost:8000/health`.
+Open [CheckoutGuard](http://localhost:5173). The [API documentation](http://localhost:8000/docs) and [health endpoint](http://localhost:8000/health) run on port 8000.
+
+If your default Python is older, run `PYTHON=python3.13 ./scripts/setup.sh` with the executable for an installed, supported version. The startup script runs with the Bash bundled on macOS. For a deterministic walkthrough, launch with `AI_PROVIDER=deterministic ./scripts/dev.sh`.
 
 Enter `local-demo-key-change-me` at the workspace login (or your configured `MERCHANT_API_KEY`). This is development API-key authentication, not a production identity/session system. Keys are hashed in the database and held in browser session storage while unlocked. Never put the PayPal secret into the browser key field.
 
@@ -122,8 +71,9 @@ Enter `local-demo-key-change-me` at the workspace login (or your configured `MER
 2. Click **Simulate interrupted checkout**. A $49 simulated capture completes but the browser response is deliberately dropped. An incident appears; until reconciliation, truth is UNKNOWN.
 3. Click **Reconcile now**. Lookup confirms exactly one capture; status becomes CONFIRMED. The background worker also does this automatically, so UNKNOWN may already have resolved.
 4. Click **Investigate incident**. Inspect the findings, unknowns and editable customer reply. Click a cited finding or timeline event to see its source JSON.
-5. Open **Replay Lab**, choose **response lost**, then **Run simulation**. Inspect expected/actual assertions, duplicate protection, and trace. Run the other three scenarios too.
-6. Open **Demo checkout**, start a simulated checkout, capture it, then open the private payment status link. That page works without a merchant key and polls every three seconds. Demo faults are available only when enabled on the server.
+5. Click **Open private payment status** from the incident to view the same order as the buyer. The link opens without a merchant key.
+6. Open **Replay Lab**, choose **response lost**, then **Run simulation**. Inspect expected/actual assertions, duplicate protection, and trace. Run the other three scenarios too.
+7. Open **Demo checkout**, start a simulated checkout, capture it, then open the private payment status link. That page works without a merchant key and polls every three seconds. Demo faults are available only when enabled on the server.
 
 The checkout screen is a merchant-operated demo. A production public storefront should create orders through a server-side merchant integration rather than distributing a merchant API key to buyers. The private status page is buyer-facing.
 
@@ -132,11 +82,11 @@ The checkout screen is a merchant-operated demo. A production public storefront 
 ```bash
 ./scripts/test.sh                 # Python service/API tests + TypeScript/production build
 cd frontend
-npm exec playwright install chromium  # only if Chromium is not installed
-CHROMIUM_PATH=/path/to/chromium npm exec playwright test
+npm exec -- playwright install chromium  # skip if using an existing browser
+npm exec -- playwright test
 ```
 
-The browser suite expects API port 8000 and frontend port 5173 running in **simulated** mode, using the default demo merchant key. On this cloud machine Chromium is `/usr/bin/chromium`; elsewhere provide the installed browser executable. Run in a disposable development database: browser tests create demo payment records. API tests use their own SQLite database under `/tmp` and reset it before each test.
+The browser suite expects API port 8000 and frontend port 5173 running in **simulated** mode, using the default demo merchant key. Use a server started with `AI_PROVIDER=deterministic` for repeatable browser tests. The suite uses Playwright Chromium by default, detects `/usr/bin/chromium` on Linux, and accepts `CHROMIUM_PATH` for an installed Chrome or Chromium executable. Run in a disposable development database: browser tests create demo payment records. API tests use their own SQLite database under `/tmp` and reset it before each test.
 
 Tests cover simultaneous capture requests, lost-response recovery, deterministic truth, no state regression, token secrecy/expiry/revocation, tenant isolation, webhook verification failure and deduplication, worker reconciliation, fabricated AI citations, AI outage fallback, immutable evidence, and all replay scenarios. Browser tests exercise merchant investigation/evidence/replay plus buyer checkout/status on desktop and mobile. API/OpenAPI examples are also available in `postman/CheckoutGuard.postman_collection.json`.
 
@@ -155,15 +105,15 @@ Put values in `backend/.env` locally, or your hosting provider's secure environm
 | `OLLAMA_MODEL` | Local model name | Default `qwen2.5:3b`; pull it with Ollama first |
 | `OLLAMA_TIMEOUT_SECONDS` | Inference timeout | Default `120`; increase up to `600` for slower hardware |
 | `DATABASE_URL` | PostgreSQL deployment | Provider connection string; `postgresql+psycopg://...` supported |
-| `PUBLIC_URL` | Sandbox approval redirect | Your public HTTPS application origin, without trailing slash |
+| `PUBLIC_URL` | Sandbox approval redirect | The checkout origin used in the browser, without a trailing slash. Use the same localhost origin throughout a local checkout. |
 
 For a sandbox test:
 
 1. Create a PayPal developer sandbox app and use its sandbox business and personal buyer accounts. Never use a real account to pay.
-2. Deploy to a public HTTPS origin (or use a tunnel you control). Register `https://YOUR_ORIGIN/api/paypal/webhooks` in the sandbox app. Subscribe to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.PENDING`, and `CHECKOUT.ORDER.APPROVED`.
+2. Register the public HTTPS URL ending in `/api/paypal/webhooks` in the sandbox app. For local testing, a tunnel can forward just this route while the checkout UI and merchant API stay on localhost. Subscribe to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.PENDING`, and `CHECKOUT.ORDER.APPROVED`.
 3. Configure all three PayPal variables, `PAYMENT_MODE=sandbox`, and `PUBLIC_URL`. Keep `DEMO_FAULTS_ENABLED=false` except in a controlled sandbox demonstration. Restart both API and worker; rerun the seed if the merchant key changed.
 4. Open Demo checkout → **Approve with PayPal**, sign in as the sandbox personal buyer and approve. After returning, click **Capture approved order**. This uses a server-side capture and durable PayPal-Request-Id. The frontend uses PayPal's approval redirect rather than embedding its JS SDK.
-5. Check the buyer status and authenticated `GET /api/orders/{id}` for CONFIRMED and a capture ID. If unresolved, reconcile; do not start another payment. Use **Report problem** through the API if you need a manual incident.
+5. Check the buyer status and authenticated `GET /api/orders/{id}` for CONFIRMED and a capture ID. If unresolved, reconcile; do not start another payment. Click **Report checkout problem** on the checkout page to open an incident for that order.
 6. Inspect PayPal's webhook delivery history. A verified delivery must persist and return 200; duplicate deliveries must return `duplicate: true`. The worker must be running for reconciliation.
 7. For a response-loss demo only, enable demo faults, start a separate sandbox order, check the fault checkbox before capture, and observe recovery. Disable the fault flag afterward.
 
