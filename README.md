@@ -2,6 +2,28 @@
 
 When checkout freezes, the buyer may have already paid. CheckoutGuard looks up the original payment, shows the buyer a private status page, and gives the merchant a timeline and an evidence-linked investigation. Replay Lab reproduces checkout failures and checks that repeated requests cannot capture the same payment twice.
 
+## Judge walkthrough
+
+**Scenario:** PayPal Sandbox captures a $49 payment, but CheckoutGuard deliberately drops the checkout response. Can the merchant confirm the original payment and answer the buyer without charging them again?
+
+**Set up:** Clone the repo and copy `.env.example` as shown in [Quick start](#quick-start). Configure the Sandbox app, Personal buyer account, merchant key, and public HTTPS webhook in [Keys and sandbox setup](#keys-and-sandbox-setup). Start Ollama and download `qwen2.5:3b` as shown in [Local AI with Ollama](#local-ai-with-ollama). From the repo root, run:
+
+```bash
+./scripts/setup.sh
+AI_PROVIDER=ollama DEMO_FAULTS_ENABLED=true ./scripts/dev.sh
+```
+
+Open the exact address in `PUBLIC_URL` and unlock the workspace with your configured `MERCHANT_API_KEY`.
+
+1. Open **Demo checkout → Approve with PayPal**. Sign in as the Sandbox Personal buyer and approve the $49 order.
+2. When PayPal returns you to CheckoutGuard, check **Demo fault: lose capture response after payment**, then click **Capture approved order**. Expect the demo response-loss error. Keep working with this same order.
+3. Click **Report checkout problem → Reconcile now**. In the **Flight Recorder**, look for the dropped-response event and the provider lookup. Payment Truth should reach **CONFIRMED** with a capture reference. The worker may already have confirmed it.
+4. Click **Investigate incident**. Look for **OLLAMA · LOCAL**, open a cited provider record, and review the customer reply draft.
+5. Click **Open private payment status**. The same order should show **Your payment is confirmed** and **$49.00 USD**. Check for a successful `PAYMENT.CAPTURE.COMPLETED` delivery in the Sandbox app's webhook history.
+6. In **Replay Lab**, select **Response lost** and click **Run simulation**. Expect **All assertions passed**, including **At most one provider capture** and **Duplicate attempt blocked**.
+
+Stop the server after this test. A normal Sandbox restart uses the `DEMO_FAULTS_ENABLED=false` setting from the Sandbox setup. For a credential-free run of the same scenario, use the [simulated walkthrough](#try-the-whole-story-no-api-keys-required).
+
 ## Repository layout
 
 | Path | What lives there |
