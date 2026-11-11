@@ -4,7 +4,7 @@ from pydantic import Field, model_validator
 from urllib.parse import urlsplit
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', extra='ignore')
+    model_config = SettingsConfigDict(env_file='.env', extra='ignore', hide_input_in_errors=True)
     database_url: str = 'sqlite:///./checkoutguard.db'
     payment_mode: str = 'simulated'
     merchant_api_key: str = 'local-demo-key-change-me'
@@ -34,6 +34,13 @@ class Settings(BaseSettings):
             raise ValueError('Sandbox requires PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_WEBHOOK_ID')
         if self.payment_mode == 'sandbox' and len(self.merchant_api_key) < 32:
             raise ValueError('Sandbox requires a custom MERCHANT_API_KEY of at least 32 characters')
+        if self.payment_mode == 'sandbox':
+            origin = urlsplit(self.public_url)
+            local = origin.hostname in ('localhost', '127.0.0.1', '::1')
+            if (not origin.hostname or origin.username is not None or origin.password is not None
+                    or origin.path or origin.query or origin.fragment
+                    or not (origin.scheme == 'https' or (local and origin.scheme == 'http'))):
+                raise ValueError('PUBLIC_URL must be an HTTPS origin or an HTTP loopback origin')
         return self
 
 @lru_cache

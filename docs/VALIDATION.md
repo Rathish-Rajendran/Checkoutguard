@@ -5,8 +5,8 @@ Release checks were run on macOS on November 10, 2026.
 | Check | Result |
 | --- | --- |
 | Fresh judge setup | Installed locked dependencies, applied migrations, seeded a fresh SQLite database and started the API, worker and frontend with Bash 3.2 and no PayPal credentials. Health returned OK. |
-| `./scripts/test.sh` | 32 backend tests passed. TypeScript and the Vite production build passed. |
-| Playwright with Chrome | 2 tests passed. The tests exercise incident recovery, investigation, evidence inspection, replay, manual incident reporting and private buyer status at desktop and mobile widths. |
+| `./scripts/test.sh` | 34 backend tests passed after the security review. TypeScript and the Vite production build passed. |
+| Playwright with Chrome | 2 tests passed against the FastAPI-served production bundle with its content security policy. The tests exercise incident recovery, investigation, evidence inspection, replay, manual incident reporting and private buyer status at desktop and mobile widths. |
 | Postman via Newman | 11 requests and 17 assertions passed against a fresh simulated service, including confirmation, buyer data minimization, replay and rejection of an unsigned webhook. |
 | Replay Lab | Automated checks passed for all four predefined scenarios. |
 | Ollama with `qwen2.5:3b` | A live browser investigation displayed OLLAMA · LOCAL and linked to a provider record. Adapter tests cover invalid citations, malformed output, incomplete output and provider failure. |

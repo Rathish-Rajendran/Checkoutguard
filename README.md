@@ -43,7 +43,7 @@ curl --noproxy localhost,127.0.0.1 -fsS http://127.0.0.1:11434/api/tags
 
 In CheckoutGuard, create/open an incident and click **Investigate incident**. A successful model response shows **OLLAMA · LOCAL**. If the service is stopped, the model is missing, inference times out or its JSON/citations are rejected, the workspace shows **OLLAMA UNAVAILABLE · FALLBACK** and a source-linked deterministic report. Payment truth remains backend-derived in both cases. Test failure handling by stopping Ollama and investigating again. Set `AI_PROVIDER=deterministic` to skip model calls entirely for a repeatable non-AI demo or automated UI checks.
 
-The backend uses Ollama's native `/api/chat` endpoint, structured JSON-schema output, a separate system instruction and untrusted user-data message, temperature zero and no tools. It still validates citations, restricts next-step actions and generates confirmed facts/support replies deterministically. Prior investigations keep their historical provider metadata; create a new investigation to use Ollama.
+The backend uses Ollama's native `/api/chat` endpoint, structured JSON-schema output, a separate system instruction and untrusted user-data message, temperature zero and no tools. Ollama receives selected event metadata and allow-listed payment statuses. Raw provider payloads stay in the merchant evidence inspector. The API validates citations, restricts next-step actions and generates confirmed facts and support replies deterministically. Prior investigations keep their historical provider metadata; create a new investigation to use Ollama.
 
 **Deployment:** `127.0.0.1` is relative to the API process. An API hosted on Render cannot reach Ollama running on your laptop via that address. For a local hackathon demo, run the API and Ollama together. For a hosted demo, provision a model server reachable over a protected private network, configure `OLLAMA_BASE_URL` there, and switch `AI_PROVIDER=ollama`. Do not expose Ollama's unauthenticated port directly to the public internet. The Render blueprint defaults to `deterministic` until that model service is configured. If containers are used, configure a reachable service hostname rather than assuming container loopback reaches the host.
 
@@ -105,7 +105,7 @@ Put values in `backend/.env` locally, or your hosting provider's secure environm
 | `OLLAMA_MODEL` | Local model name | Default `qwen2.5:3b`; pull it with Ollama first |
 | `OLLAMA_TIMEOUT_SECONDS` | Inference timeout | Default `120`; increase up to `600` for slower hardware |
 | `DATABASE_URL` | PostgreSQL deployment | Provider connection string; `postgresql+psycopg://...` supported |
-| `PUBLIC_URL` | Sandbox approval redirect | The checkout origin used in the browser, without a trailing slash. Use the same localhost origin throughout a local checkout. |
+| `PUBLIC_URL` | Sandbox approval redirect | The HTTPS checkout origin used in the browser, without a trailing slash. For local checkout, use the same HTTP loopback origin throughout. |
 
 For a sandbox test:
 

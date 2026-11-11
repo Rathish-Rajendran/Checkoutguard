@@ -191,3 +191,15 @@ def test_sandbox_requires_nondefault_merchant_key():
     from pydantic import ValidationError
     with pytest.raises(ValidationError,match='MERCHANT_API_KEY'):
         Settings(_env_file=None,payment_mode='sandbox',paypal_client_id='test',paypal_client_secret='test',paypal_webhook_id='test',merchant_api_key='local-demo-key-change-me')
+
+@pytest.mark.parametrize('public_url', ['http://checkout.example.invalid', 'https://checkout.example.invalid/path'])
+def test_sandbox_validates_approval_origin_without_disclosing_secrets(public_url):
+    from app.config import Settings
+    from pydantic import ValidationError
+
+    secret = 'private-test-payment-value'
+    with pytest.raises(ValidationError, match='PUBLIC_URL') as error:
+        Settings(_env_file=None, payment_mode='sandbox', paypal_client_id='test',
+                 paypal_client_secret=secret, paypal_webhook_id='test',
+                 merchant_api_key='m' * 32, public_url=public_url)
+    assert secret not in str(error.value)
