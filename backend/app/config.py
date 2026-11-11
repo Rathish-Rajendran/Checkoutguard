@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import Field, model_validator
+from urllib.parse import urlsplit
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', extra='ignore')
@@ -11,11 +12,20 @@ class Settings(BaseSettings):
     paypal_client_secret: str = ''
     paypal_webhook_id: str = ''
     public_url: str = 'http://localhost:5173'
-    gemini_api_key: str = ''
-    gemini_model: str = 'gemini-2.5-flash'
+    ai_provider: str = 'ollama'
+    ollama_base_url: str = 'http://127.0.0.1:11434'
+    ollama_model: str = 'qwen2.5:3b'
+    ollama_timeout_seconds: float = Field(default=120, gt=0, le=600)
     demo_faults_enabled: bool = True
     @model_validator(mode='after')
     def validate_mode(self):
+        if self.ai_provider not in ('ollama', 'deterministic'):
+            raise ValueError('AI_PROVIDER must be ollama or deterministic')
+        endpoint = urlsplit(self.ollama_base_url)
+        if endpoint.scheme not in ('http', 'https') or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment or endpoint.path not in ('', '/'):
+            raise ValueError('OLLAMA_BASE_URL must be an HTTP(S) origin without credentials or a path')
+        if not self.ollama_model.strip():
+            raise ValueError('OLLAMA_MODEL must not be empty')
         if self.database_url.startswith(('postgres://', 'postgresql://')):
             self.database_url = 'postgresql+psycopg://' + self.database_url.split('://', 1)[1]
         if self.payment_mode not in ('simulated', 'sandbox'):

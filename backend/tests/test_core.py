@@ -13,7 +13,9 @@ from app.truth import derive_truth,can_retry
 from app.investigator import validate_report
 from app.replay import SCENARIOS,run_scenario
 @pytest.fixture(autouse=True)
-def database():
+def database(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings(),'ai_provider','deterministic')
     Base.metadata.drop_all(engine);Base.metadata.create_all(engine)
     fake.orders.clear();fake.capture_count=0;fake.unresolved=False
     with Session() as db:
@@ -101,9 +103,9 @@ def test_revocation_and_resource_identity():
 def test_ai_outage_falls_back_without_changing_truth(monkeypatch):
     from app.config import settings
     import app.investigator as ai
-    monkeypatch.setattr(settings(),'gemini_api_key','test-only-not-a-secret')
+    monkeypatch.setattr(settings(),'ai_provider','ollama')
     def unavailable(*args,**kwargs):raise TimeoutError('Provider unavailable')
-    monkeypatch.setattr(ai.httpx,'post',unavailable)
+    monkeypatch.setattr(ai,'request_ollama',unavailable)
     o=create();c.post('/api/paypal/capture',headers=h,json={'order_id':o['id'],'drop_response':True})
     iid=c.get('/api/incidents',headers=h).json()[0]['id']
     r=c.post('/api/incidents/'+iid+'/investigate',headers=h,json={}).json()

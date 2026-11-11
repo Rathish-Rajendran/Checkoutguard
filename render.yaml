@@ -23,8 +23,14 @@ services:
         sync: false
       - key: PUBLIC_URL
         sync: false
-      - key: GEMINI_API_KEY
+      # Loopback on Render cannot reach Ollama on your laptop.
+      # Use deterministic until you provide an accessible, protected Ollama service.
+      - key: AI_PROVIDER
+        value: deterministic
+      - key: OLLAMA_BASE_URL
         sync: false
+      - key: OLLAMA_MODEL
+        value: qwen2.5:3b
       - key: DEMO_FAULTS_ENABLED
         value: 'false'
   - type: worker
