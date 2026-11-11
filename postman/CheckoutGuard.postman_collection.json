@@ -1,0 +1,340 @@
+{
+  "info": {
+    "name": "CheckoutGuard",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "merchant_key",
+      "value": "local-demo-key-change-me"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create order",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/checkout/orders",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "const o = pm.response.json(); pm.collectionVariables.set('order_id', o.id); pm.collectionVariables.set('buyer_token', o.buyer_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Capture",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/paypal/capture",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"order_id\": \"{{order_id}}\", \"drop_response\": false}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Truth",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/orders/{{order_id}}",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reconcile",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/orders/{{order_id}}/reconcile",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Report problem",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/orders/{{order_id}}/report",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));",
+              "pm.collectionVariables.set('incident_id', pm.response.json().incident_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Incidents",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/incidents",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investigate",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/incidents/{{incident_id}}/investigate",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"customer_message\": \"Checkout froze. Did I pay?\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Buyer status",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/buyer/status/{{buyer_token}}",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay lost response",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/replay/response-lost",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook (real PayPal signed delivery required)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/api/paypal/webhooks",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{merchant_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"id\": \"WH-MANUAL\", \"event_type\": \"PAYMENT.CAPTURE.COMPLETED\", \"resource\": {}}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected response', () => pm.expect(pm.response.code).to.eql(400));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

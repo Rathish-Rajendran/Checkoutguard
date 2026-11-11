@@ -1,0 +1,48 @@
+databases:
+  - name: checkoutguard-db
+    plan: basic-256mb
+services:
+  - type: web
+    name: checkoutguard-api
+    runtime: python
+    buildCommand: pip install -r backend/requirements.lock && npm --prefix frontend ci && npm --prefix frontend run build
+    startCommand: cd backend && alembic upgrade head && python -m app.seed && uvicorn app.main:app --no-access-log --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: {name: checkoutguard-db, property: connectionString}
+      - key: PAYMENT_MODE
+        value: sandbox
+      - key: MERCHANT_API_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEMO_FAULTS_ENABLED
+        value: 'false'
+  - type: worker
+    name: checkoutguard-worker
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.lock
+    startCommand: python -m app.worker
+    envVars:
+      - key: MERCHANT_API_KEY
+        fromService: {type: web, name: checkoutguard-api, envVarKey: MERCHANT_API_KEY}
+      - key: DATABASE_URL
+        fromDatabase: {name: checkoutguard-db, property: connectionString}
+      - key: PAYMENT_MODE
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
