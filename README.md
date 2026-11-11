@@ -1,6 +1,15 @@
 # CheckoutGuard
 
-When a checkout response is lost, CheckoutGuard checks the existing payment, shows the buyer a private status page, and gives the merchant an evidence-backed investigation. Replay Lab reproduces checkout failures and checks that repeated requests cannot capture the same payment twice.
+When checkout freezes, the buyer may have already paid. CheckoutGuard looks up the original payment, shows the buyer a private status page, and gives the merchant a timeline and an evidence-linked investigation. Replay Lab reproduces checkout failures and checks that repeated requests cannot capture the same payment twice.
+
+## Repository layout
+
+| Path | What lives there |
+| --- | --- |
+| [`backend/app/`](backend/app/) | FastAPI routes, PayPal and simulated payment clients, the reconciliation worker, Ollama investigation, and Replay Lab. |
+| [`backend/migrations/`](backend/migrations/) and [`backend/tests/`](backend/tests/) | Alembic database schema and tests for payment state, webhook handling, access control, and AI validation. |
+| [`frontend/src/`](frontend/src/) and [`frontend/tests/`](frontend/tests/) | React and TypeScript merchant workspace, buyer status page, and Playwright browser tests. |
+| [`scripts/`](scripts/) | Setup, local startup, and test commands. |
 
 ## Quick start
 
@@ -83,4 +92,4 @@ npm exec -- playwright test
 
 If setup succeeds but the workspace returns 401, check the merchant key and rerun setup to seed it. If either port is busy, stop the other process or start with `API_PORT=8001 WEB_PORT=5174 ./scripts/dev.sh`. For browser tests on a different frontend port, set `PLAYWRIGHT_BASE_URL`. For Sandbox, update `PUBLIC_URL`.
 
-[Validation results](docs/VALIDATION.md) · [Security review](docs/SECURITY_REVIEW.md) · [Demo script](docs/DEMO.md) · [Postman collection](postman/CheckoutGuard.postman_collection.json) · [Render deployment blueprint](render.yaml) · [MIT license](LICENSE)
+[Validation results](docs/VALIDATION.md) · [Security review](docs/SECURITY_REVIEW.md) · [Postman collection](postman/CheckoutGuard.postman_collection.json) · [Render deployment blueprint](render.yaml) · [MIT license](LICENSE)
